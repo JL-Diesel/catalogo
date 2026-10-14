@@ -55,8 +55,9 @@ main{padding-block:16px 40px;padding-inline:16px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;text-align:left;font:inherit;color:inherit;padding:0}
 .card:hover{border-color:var(--muted)}
 .card.is-out .img{opacity:.55}
-.img{aspect-ratio:4/3;background:var(--ph);display:grid;place-items:center;position:relative;max-width:100%;width:100%}
-.img img{width:100%;height:100%;object-fit:cover}
+.img{aspect-ratio:4/3;background:var(--ph);display:grid;place-items:center;position:relative;max-width:100%;width:100%;overflow:hidden}
+/* Photos fill the same box as the placeholder, whatever their shape. */
+.img img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff;padding:6px}
 .img svg{width:40%;height:auto;color:var(--ph-ink)}
 .img .nophoto{position:absolute;bottom:6px;left:8px;font-size:11px;color:var(--ph-ink)}
 .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}

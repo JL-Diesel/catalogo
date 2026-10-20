@@ -215,7 +215,11 @@ const $=id=>document.getElementById(id);
 const sel={cat:$("f-cat"),fab:$("f-fab"),motor:$("f-motor"),camion:$("f-camion"),marca:$("f-marca"),stock:$("f-stock")};
 function fill(el,vals,all){const prev=el.value;el.innerHTML=`<option value="">${all}</option>`+[...new Set(vals.filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es")).map(v=>`<option>${esc(v)}</option>`).join("");el.value=prev;if(el.value!==prev)el.value=""}
 const PAGE=60; let shown=PAGE, list=[];
-const photoTag=(p,url)=>`<img src="${esc(url)}" referrerpolicy="no-referrer" alt="${esc(p.d)}" loading="lazy" onerror="this.replaceWith(document.createRange().createContextualFragment(ph('${esc(p.k)}')))">`;
+const photoTag=(p,url)=>`<img src="${esc(url)}" referrerpolicy="no-referrer" alt="${esc(p.d)}" loading="lazy" onerror="photoFail(this,'${esc(p.k)}')">`;
+function photoFail(img,k){
+  if(/[?&]v=/.test(img.src)){img.src=img.src.replace(/&v=\d+/,"");return}
+  img.replaceWith(document.createRange().createContextualFragment(ph(k)));
+}
 function imgHTML(p){
   if(!p.fotos.length) return `${ph(p.k)}<span class="nophoto">Sin foto</span>`;
   return photoTag(p,p.fotos[0])+(p.fotos.length>1?`<span class="count">${p.fotos.length} fotos</span>`:"");
@@ -327,7 +331,10 @@ function toNumber(v){
   else if(/^\d{1,3}(\.\d{3})+$/.test(t)) t=t.replace(/\./g,"");
   const n=parseFloat(t);return isNaN(n)?null:n;
 }
-function photoLink(link){const m=link.match(/\/d\/([\w-]{20,})/)||link.match(/[?&]id=([\w-]{20,})/);return m?`https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000`:link}
+// Drive photos get a daily "v" parameter so a photo replaced in Drive (same link) shows up by the next day at the latest,
+// instead of the browser keeping the old image.
+const PHOTO_DAY=new Date().toISOString().slice(0,10).replace(/-/g,"");
+function photoLink(link){const m=link.match(/\/d\/([\w-]{20,})/)||link.match(/[?&]id=([\w-]{20,})/);return m?`https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000&v=${PHOTO_DAY}`:link}
 // Same rules as the Excel: header row with CODIGO…, category rows interleaved.
 function rowsFromSheet(vals,fotos){
   const h=vals.findIndex(r=>r.some(c=>norm(clean(c))==="codigo"));

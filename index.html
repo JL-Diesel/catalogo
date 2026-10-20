@@ -60,6 +60,18 @@ main{padding-block:16px 40px;padding-inline:16px}
 .img img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff;padding:6px}
 .img svg{width:40%;height:auto;color:var(--ph-ink)}
 .img .nophoto{position:absolute;bottom:6px;left:8px;font-size:11px;color:var(--ph-ink)}
+.img .count{position:absolute;bottom:6px;right:8px;font-size:11.5px;font-weight:600;background:rgba(20,26,34,.72);color:#fff;padding:2px 7px;border-radius:999px}
+/* Detail gallery: swipe on tablets/phones, arrows and dots on any device. */
+.gallery{position:relative;min-width:0}
+.track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;height:100%}
+.track::-webkit-scrollbar{display:none}
+.track .img{flex:0 0 100%;scroll-snap-align:center}
+.gnav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:0;background:rgba(20,26,34,.6);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:grid;place-items:center}
+.gnav.prev{left:8px}.gnav.next{right:8px}
+.gnav[disabled]{opacity:0;pointer-events:none}
+.dots{position:absolute;bottom:10px;left:0;right:0;display:flex;justify-content:center;gap:6px}
+.dots span{width:8px;height:8px;border-radius:50%;background:rgba(20,26,34,.3)}
+.dots span.on{background:var(--accent)}
 .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
 .code{font-family:var(--f-mono);font-size:12.5px;color:var(--muted)}
 .desc{font-weight:600;font-size:14.5px;line-height:1.3;overflow-wrap:anywhere}
@@ -152,7 +164,7 @@ function load(res,subtitle){
   const seen={};res.filas.forEach(r=>seen[r[0]]=(seen[r[0]]||0)+1);
   products=res.filas.map(([c,d,m,p,s,k,foto])=>{
     const u=" "+String(d).toUpperCase().replace(/-/g," ")+" ";
-    const x={c,d,m,p,s:String(s),k:sentence(k),foto,f:tags(FABRE,u),mo:tags(MOT,u),t:tags(TRK,u)};
+    const x={c,d,m,p,s:String(s),k:sentence(k),fotos:Array.isArray(foto)?foto:(foto?[foto]:[]),f:tags(FABRE,u),mo:tags(MOT,u),t:tags(TRK,u)};
     x.id=seen[c]>1?c+"-"+String(m).replace(/[^A-Za-z0-9]+/g,""):c;
     x.si=stockInfo(x.s);
     x.text=norm([x.c,x.d,x.m,x.k,...x.f,...x.mo,...x.t].join(" "));
@@ -203,8 +215,25 @@ const $=id=>document.getElementById(id);
 const sel={cat:$("f-cat"),fab:$("f-fab"),motor:$("f-motor"),camion:$("f-camion"),marca:$("f-marca"),stock:$("f-stock")};
 function fill(el,vals,all){const prev=el.value;el.innerHTML=`<option value="">${all}</option>`+[...new Set(vals.filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es")).map(v=>`<option>${esc(v)}</option>`).join("");el.value=prev;if(el.value!==prev)el.value=""}
 const PAGE=60; let shown=PAGE, list=[];
+const photoTag=(p,url)=>`<img src="${esc(url)}" referrerpolicy="no-referrer" alt="${esc(p.d)}" loading="lazy" onerror="this.replaceWith(document.createRange().createContextualFragment(ph('${esc(p.k)}')))">`;
 function imgHTML(p){
-  return p.foto?`<img src="${esc(p.foto)}" referrerpolicy="no-referrer" alt="${esc(p.d)}" loading="lazy" onerror="this.replaceWith(document.createRange().createContextualFragment(ph('${esc(p.k)}')))">`:`${ph(p.k)}<span class="nophoto">Sin foto</span>`;
+  if(!p.fotos.length) return `${ph(p.k)}<span class="nophoto">Sin foto</span>`;
+  return photoTag(p,p.fotos[0])+(p.fotos.length>1?`<span class="count">${p.fotos.length} fotos</span>`:"");
+}
+function galleryHTML(p){
+  if(p.fotos.length<2) return `<div class="img">${imgHTML(p)}</div>`;
+  return `<div class="gallery"><div class="track" id="track">${p.fotos.map(u=>`<div class="img">${photoTag(p,u)}</div>`).join("")}</div>
+    <button class="gnav prev" id="gprev" type="button" aria-label="Foto anterior">‹</button>
+    <button class="gnav next" id="gnext" type="button" aria-label="Foto siguiente">›</button>
+    <div class="dots" id="dots">${p.fotos.map((_,i)=>`<span${i?"":' class="on"'}></span>`).join("")}</div></div>`;
+}
+function wireGallery(){
+  const tr=$("track");if(!tr)return;
+  const n=tr.children.length, idx=()=>Math.round(tr.scrollLeft/tr.clientWidth);
+  const sync=()=>{const i=idx();[...$("dots").children].forEach((d,k)=>d.classList.toggle("on",k===i));$("gprev").disabled=i===0;$("gnext").disabled=i===n-1};
+  const go=d=>tr.scrollTo({left:(idx()+d)*tr.clientWidth,behavior:"smooth"});
+  $("gprev").onclick=()=>go(-1);$("gnext").onclick=()=>go(1);
+  tr.addEventListener("scroll",()=>requestAnimationFrame(sync),{passive:true});sync();
 }
 function filtered(){
   const words=norm($("q").value.trim()).split(/\s+/).filter(Boolean);
@@ -253,7 +282,7 @@ function open(id){
   const p=products.find(x=>x.id===id);if(!p)return;current=p;
   const row=(k,v)=>v?`<dt>${k}</dt><dd>${esc(v)}</dd>`:"";
   $("sheet").innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="${esc(p.d)}">
-    <div class="img">${imgHTML(p)}</div>
+    ${galleryHTML(p)}
     <div class="pbody">
       <div class="code">${esc(p.c)}</div>
       <h2>${esc(p.d)}</h2>
@@ -268,6 +297,7 @@ function open(id){
     </div></div>`;
   $("sheet").hidden=false;
   $("close").onclick=closeSheet;
+  wireGallery();
 }
 function closeSheet(){$("sheet").hidden=true;current=null}
 $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")closeSheet()});
@@ -311,14 +341,18 @@ function rowsFromSheet(vals,fotos){
     if(((c&&!n)||(n&&!c))&&!m&&!p&&!e){cat=c||n;continue}
     if(!c||!n)continue;
     const k=c+"|"+m;if(seen[k])continue;seen[k]=1;
-    out.push([c,n,m,toNumber(p),e||"0",cat,fotos[c.toUpperCase()]||""]);
+    out.push([c,n,m,toNumber(p),e||"0",cat,fotos[c.toUpperCase()]||[]]);
   }
   if(!out.length) throw new Error("La hoja no tiene productos.");
   return out;
 }
 function fotosFromSheet(vals){
   const out={};
-  vals.slice(1).forEach(r=>{const c=clean(r[0]).toUpperCase(),l=clean(r[1]);if(c&&/^https?:\/\//i.test(l))out[c]=photoLink(l)});
+  // A code can repeat on several rows (one photo per row, in order); a cell may also hold several links.
+  vals.slice(1).forEach(r=>{
+    const c=clean(r[0]).toUpperCase();if(!c)return;
+    String(r[1]||"").split(/[\s,]+/).filter(l=>/^https?:\/\//i.test(l)).forEach(l=>(out[c]=out[c]||[]).push(photoLink(l)));
+  });
   return out;
 }
 // Tries the published CSV first, then the direct export, so the page works whether or not the sheet is published.
